@@ -1,0 +1,30 @@
+{
+  "name": "trading-indicators",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prettify": "prettier --write src/**/*.{ts,tsx,js,jsx,css,scss,json}",
+    "dev": "ts-node-dev src/index.ts",
+    "check-types": "tsc -p . --noEmit",
+    "check-types:watch": "tsc -p . --noEmit -w"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "fp-ts": "^2.11.4",
+    "fp-ts-rxjs": "^0.6.15",
+    "rxjs": "^7.3.0"
+  },
+  "devDependencies": {
+    "prettier": "^2.4.1",
+    "ts-node-dev": "^1.1.8",
+    "typescript": "^4.4.3"
+  }
+}
