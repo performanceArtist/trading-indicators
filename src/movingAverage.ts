@@ -1,7 +1,7 @@
 import { array, nonEmptyArray, option } from 'fp-ts';
 import { flow, pipe } from 'fp-ts/lib/function';
 import { NonEmptyArray } from 'fp-ts/lib/NonEmptyArray';
-import { mapInterval, withNextQueue } from './utils/mapInterval';
+import { mapInterval } from './utils/mapInterval';
 import { splitAtFixed } from './utils/splitAtFixed';
 
 // https://www.investopedia.com/terms/m/movingaverage.asp
@@ -9,15 +9,12 @@ import { splitAtFixed } from './utils/splitAtFixed';
 const nextSimpleMA = (next: number[]) =>
   next.reduce((acc, cur) => acc + cur, 0) / next.length;
 
-export const simpleMAAcc = mapInterval(
-  nextSimpleMA,
-  withNextQueue(nextSimpleMA)
-);
+export const simpleMAAcc = mapInterval(nextSimpleMA);
 
 export const simpleMA = (period: number) =>
   flow(
     simpleMAAcc(period),
-    option.map((acc) => acc.results)
+    option.map((acc) => acc.result)
   );
 
 export const initialExponentialMA = (init: number[]) =>

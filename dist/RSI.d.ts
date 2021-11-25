@@ -29,7 +29,7 @@ export declare const getRSIAcc: (period: number) => (prices: number[]) => option
         averageLoss: number;
         rsi: number;
     }>;
-    acc: import("./utils/mapInterval").IntervalAcc<number, PricePoint>;
+    acc: import("./utils/mapInterval").IntervalAcc<number, nonEmptyArray.NonEmptyArray<PricePoint>>;
 }>;
 export declare const getRSI: (period: number) => (prices: number[]) => option.Option<nonEmptyArray.NonEmptyArray<number>>;
 export {};

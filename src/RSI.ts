@@ -1,7 +1,7 @@
 import { array, nonEmptyArray, option } from 'fp-ts';
 import { pipe } from 'fp-ts/lib/function';
 import { NonEmptyArray } from 'fp-ts/lib/NonEmptyArray';
-import { mapInterval, withNextQueue } from './utils/mapInterval';
+import { mapInterval } from './utils/mapInterval';
 import { splitAtFixed } from './utils/splitAtFixed';
 
 // https://school.stockcharts.com/doku.php?id=technical_indicators:relative_strength_index_rsi
@@ -41,7 +41,7 @@ export const toPricePoint = ([a, b]: number[]): PricePoint =>
   a > b ? { type: 'loss', value: a - b } : { type: 'gain', value: b - a };
 
 const fromPrices = (prices: number[]) =>
-  pipe(prices, mapInterval(toPricePoint, withNextQueue(toPricePoint))(2));
+  pipe(prices, mapInterval(toPricePoint)(2));
 
 export const nextRSI =
   (period: number) => (acc: NonEmptyArray<RSIData>, cur: PricePoint) =>
@@ -70,7 +70,7 @@ export const getRSIAcc = (period: number) => (prices: number[]) =>
     fromPrices,
     option.chain((acc) =>
       pipe(
-        acc.results,
+        acc.result,
         splitAtFixed(period),
         option.map(([init, rest]) =>
           pipe(rest, array.reduce(initialRSI(init), nextRSI(period)))

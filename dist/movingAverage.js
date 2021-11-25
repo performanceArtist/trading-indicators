@@ -7,8 +7,8 @@ const mapInterval_1 = require("./utils/mapInterval");
 const splitAtFixed_1 = require("./utils/splitAtFixed");
 // https://www.investopedia.com/terms/m/movingaverage.asp
 const nextSimpleMA = (next) => next.reduce((acc, cur) => acc + cur, 0) / next.length;
-exports.simpleMAAcc = (0, mapInterval_1.mapInterval)(nextSimpleMA, (0, mapInterval_1.withNextQueue)(nextSimpleMA));
-const simpleMA = (period) => (0, function_1.flow)((0, exports.simpleMAAcc)(period), fp_ts_1.option.map((acc) => acc.results));
+exports.simpleMAAcc = (0, mapInterval_1.mapInterval)(nextSimpleMA);
+const simpleMA = (period) => (0, function_1.flow)((0, exports.simpleMAAcc)(period), fp_ts_1.option.map((acc) => acc.result));
 exports.simpleMA = simpleMA;
 const initialExponentialMA = (init) => fp_ts_1.nonEmptyArray.of(init.reduce((acc, cur) => acc + cur, 0) / init.length);
 exports.initialExponentialMA = initialExponentialMA;
