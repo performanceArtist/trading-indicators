@@ -39,8 +39,13 @@ export const reduceInterval =
       )
     );
 
+export const withNextArrayQueue = <A, B>(f: (init: NonEmptyArray<A>) => B) =>
+  withNextQueue((acc: NonEmptyArray<B>, cur: NonEmptyArray<A>) =>
+    pipe(acc, array.append(f(cur)))
+  );
+
 export const mapInterval = <A, B>(f: (init: NonEmptyArray<A>) => B) =>
   reduceInterval(
     (init: NonEmptyArray<A>) => nonEmptyArray.of(f(init)),
-    withNextQueue((acc, cur) => pipe(acc, array.append(f(cur))))
+    withNextArrayQueue(f)
   );
