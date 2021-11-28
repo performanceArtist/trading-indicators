@@ -5,3 +5,4 @@ export * from './trend';
 export * from './types';
 export * from './volume';
 export * from './utils';
+export * from './dominance';

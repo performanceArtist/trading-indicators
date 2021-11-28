@@ -17,3 +17,4 @@ __exportStar(require("./trend"), exports);
 __exportStar(require("./types"), exports);
 __exportStar(require("./volume"), exports);
 __exportStar(require("./utils"), exports);
+__exportStar(require("./dominance"), exports);

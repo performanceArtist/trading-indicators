@@ -1,37 +1,60 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.buildTrend = exports.buildTrendAcc = void 0;
+exports.higherHighsHigherLowsThreshold = exports.higherHighsHigherLowsRatio = exports.higherHighsHigherLows = exports.getHighLows = exports.generalizeTrend = exports.getAverageCurveLength = exports.getTrendAcc = exports.nextTrend = void 0;
 const fp_ts_1 = require("fp-ts");
 const Apply_1 = require("fp-ts/lib/Apply");
 const function_1 = require("fp-ts/lib/function");
-const movingAverage_1 = require("./movingAverage");
-const buildTrendAcc = ({ flatTolerancePercent, emaPeriod, splinePeriod }) => (candles) => (0, function_1.pipe)(candles, fp_ts_1.array.map((c) => (c.open + c.close + c.low + c.high) / 4), (0, movingAverage_1.exponentialMA)(emaPeriod), fp_ts_1.option.map(trendAcc(flatTolerancePercent, splinePeriod)));
-exports.buildTrendAcc = buildTrendAcc;
-const buildTrend = (options) => (candles) => (0, function_1.pipe)((0, exports.buildTrendAcc)(options)(candles), fp_ts_1.option.map((acc) => acc.curves));
-exports.buildTrend = buildTrend;
-const nextTrendAcc = (flatTolerancePercent, period) => (acc, cur) => acc.curSpline.length == period - 1
-    ? {
-        curves: (0, function_1.pipe)(makeCurve(flatTolerancePercent)(acc.curSpline.concat(cur)), fp_ts_1.option.fold(() => acc.curves, (c) => appendCurve(flatTolerancePercent)(acc.curves)(c))),
-        curSpline: [],
+const utils_1 = require("./utils");
+const getInitCurve = (a, b) => a > b ? { type: 'falling', data: [a, b] } : { type: 'rising', data: [a, b] };
+exports.nextTrend = (0, utils_1.withNextQueue)((acc, [a, b]) => (0, function_1.pipe)(acc, fp_ts_1.nonEmptyArray.last, (last) => {
+    if (a > b) {
+        return last.type === 'falling'
+            ? [{ type: 'falling', data: (0, function_1.pipe)(last.data, fp_ts_1.array.append(b)) }]
+            : [last, { type: 'falling', data: fp_ts_1.nonEmptyArray.of(b) }];
     }
-    : Object.assign(Object.assign({}, acc), { curSpline: acc.curSpline.concat(cur) });
-const trendAcc = (flatTolerancePercent, period) => (values) => (0, function_1.pipe)(values, fp_ts_1.array.reduce({ curSpline: [], curves: [] }, nextTrendAcc(flatTolerancePercent, period)));
-const appendCurve = (flatTolerancePercent) => (cs) => (current) => (0, function_1.pipe)((0, Apply_1.sequenceT)(fp_ts_1.option.option)(fp_ts_1.array.init(cs), fp_ts_1.array.last(cs)), fp_ts_1.option.fold(() => cs.concat(current), ([init, last]) => (0, function_1.pipe)(concatCurves(flatTolerancePercent)(last, current), fp_ts_1.option.fold(() => cs.concat(current), (newCurve) => init.concat(newCurve)))));
-const concatCurves = (flatTolerancePercent) => (a, b) => a.type !== b.type
-    ? fp_ts_1.option.none
-    : (0, function_1.pipe)((0, Apply_1.sequenceT)(fp_ts_1.option.option)(fp_ts_1.array.head(a.data), fp_ts_1.array.last(b.data)), fp_ts_1.option.map(([first, last]) => ({
-        type: a.type,
-        data: a.data.concat(b.data),
-    })));
-const isFlat = (flatTolerancePercent) => (a, b) => getPercentChange(a, b) < flatTolerancePercent;
-const getType = (flatTolerancePercent) => (first, last) => first > last ? 'falling' : 'rising';
-/*
-  isFlat(flatTolerancePercent)(first, last)
-    ? "flat"
-    :
-    */
-const makeCurve = (flatTolerancePercent) => (spline) => (0, function_1.pipe)((0, Apply_1.sequenceT)(fp_ts_1.option.option)(fp_ts_1.array.head(spline), fp_ts_1.array.last(spline)), fp_ts_1.option.map(([first, last]) => ({
-    type: getType(flatTolerancePercent)(first, last),
-    data: spline,
-})));
-const getPercentChange = (a, b) => a > b ? 100 * (a / b - 1) : 100 * (b / a - 1);
+    else {
+        return last.type === 'rising'
+            ? [{ type: 'rising', data: (0, function_1.pipe)(last.data, fp_ts_1.array.append(b)) }]
+            : [last, { type: 'rising', data: fp_ts_1.nonEmptyArray.of(b) }];
+    }
+}, (update) => (0, function_1.pipe)(acc, fp_ts_1.nonEmptyArray.init, fp_ts_1.nonEmptyArray.concat(update))));
+exports.getTrendAcc = (0, utils_1.reduceInterval)(([a, b]) => fp_ts_1.nonEmptyArray.of(getInitCurve(a, b)), exports.nextTrend)(2);
+const getAverageCurveLength = (curves) => (0, function_1.pipe)(curves, fp_ts_1.array.reduce(0, (acc, cur) => acc + cur.data.length), (r) => Math.round(r / curves.length));
+exports.getAverageCurveLength = getAverageCurveLength;
+const generalizeTrend = (curves) => (0, function_1.pipe)(curves, fp_ts_1.array.filter((curve) => curve.data.length > (0, exports.getAverageCurveLength)(curves)), fp_ts_1.nonEmptyArray.fromArray, fp_ts_1.option.map((curves) => (0, function_1.pipe)(fp_ts_1.nonEmptyArray.tail(curves), fp_ts_1.array.reduce(fp_ts_1.nonEmptyArray.of(fp_ts_1.nonEmptyArray.head(curves)), (acc, cur) => (0, function_1.pipe)(fp_ts_1.nonEmptyArray.last(acc), (last) => last.type === cur.type
+    ? (0, function_1.pipe)(acc, fp_ts_1.nonEmptyArray.init, fp_ts_1.nonEmptyArray.concat(fp_ts_1.nonEmptyArray.of({
+        type: last.type,
+        data: (0, function_1.pipe)(last.data, fp_ts_1.nonEmptyArray.concat(cur.data)),
+    })))
+    : (0, function_1.pipe)(acc, fp_ts_1.array.append(cur)))))));
+exports.generalizeTrend = generalizeTrend;
+const getHighLows = (curves) => (0, function_1.pipe)(curves, fp_ts_1.nonEmptyArray.map((curve) => curve.type === 'falling'
+    ? { type: 'low', value: fp_ts_1.nonEmptyArray.last(curve.data) }
+    : { type: 'high', value: fp_ts_1.nonEmptyArray.last(curve.data) }));
+exports.getHighLows = getHighLows;
+const isGrowing = (data) => (0, function_1.pipe)(data, fp_ts_1.nonEmptyArray.fromArray, fp_ts_1.option.map((lows) => (0, function_1.pipe)(fp_ts_1.nonEmptyArray.tail(lows), fp_ts_1.array.reduce({ last: fp_ts_1.nonEmptyArray.head(lows), result: false }, (acc, cur) => ({
+    last: cur,
+    result: acc.result && cur > acc.last,
+})))));
+const higherHighsHigherLows = (highlows) => {
+    const lows = (0, function_1.pipe)(highlows, fp_ts_1.array.filter((highlow) => highlow.type === 'low'), fp_ts_1.array.map((low) => low.value));
+    const highs = (0, function_1.pipe)(highlows, fp_ts_1.array.filter((highlow) => highlow.type === 'high'), fp_ts_1.array.map((high) => high.value));
+    const higherLows = isGrowing(lows);
+    const higherHighs = isGrowing(highs);
+    return (0, function_1.pipe)((0, Apply_1.sequenceT)(fp_ts_1.option.option)(higherLows, higherHighs), fp_ts_1.option.map(([a, b]) => a.result && b.result));
+};
+exports.higherHighsHigherLows = higherHighsHigherLows;
+const growingRate = (data) => (0, function_1.pipe)(data, fp_ts_1.nonEmptyArray.fromArray, fp_ts_1.option.map((lows) => (0, function_1.pipe)(fp_ts_1.nonEmptyArray.tail(lows), fp_ts_1.array.reduce({ last: fp_ts_1.nonEmptyArray.head(lows), num: 0 }, (acc, cur) => ({
+    last: cur,
+    num: cur > acc.last ? acc.num + 1 : acc.num,
+})), (acc) => acc.num / lows.length)));
+const higherHighsHigherLowsRatio = (highlows) => {
+    const lows = (0, function_1.pipe)(highlows, fp_ts_1.array.filter((highlow) => highlow.type === 'low'), fp_ts_1.array.map((low) => low.value));
+    const highs = (0, function_1.pipe)(highlows, fp_ts_1.array.filter((highlow) => highlow.type === 'high'), fp_ts_1.array.map((high) => high.value));
+    const higherLows = growingRate(lows);
+    const higherHighs = growingRate(highs);
+    return (0, function_1.pipe)((0, Apply_1.sequenceT)(fp_ts_1.option.option)(higherLows, higherHighs), fp_ts_1.option.map(([low, high]) => ({ low, high })));
+};
+exports.higherHighsHigherLowsRatio = higherHighsHigherLowsRatio;
+const higherHighsHigherLowsThreshold = (threshold) => (highlows) => (0, function_1.pipe)((0, exports.higherHighsHigherLowsRatio)(highlows), fp_ts_1.option.map((ratio) => ratio.high > threshold.high && ratio.low > threshold.low));
+exports.higherHighsHigherLowsThreshold = higherHighsHigherLowsThreshold;

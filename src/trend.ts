@@ -1,123 +1,183 @@
-import { array, option } from 'fp-ts';
+import { array, nonEmptyArray, option } from 'fp-ts';
 import { sequenceT } from 'fp-ts/lib/Apply';
 import { pipe } from 'fp-ts/lib/function';
-import { Option } from 'fp-ts/lib/Option';
-import { Candle } from './types';
-import { exponentialMA } from './movingAverage';
-
-export type TrendDirection = 'rising' | 'falling' | 'flat';
+import { NonEmptyArray } from 'fp-ts/lib/NonEmptyArray';
+import { reduceInterval, withNextQueue } from './utils';
 
 export type Curve = {
-  type: TrendDirection;
-  data: number[];
+  type: 'rising' | 'falling';
+  data: NonEmptyArray<number>;
 };
 
-export type TrendAcc = {
-  curSpline: number[];
-  curves: Curve[];
-};
+const getInitCurve = (a: number, b: number): Curve =>
+  a > b ? { type: 'falling', data: [a, b] } : { type: 'rising', data: [a, b] };
 
-export type TrendOptions = {
-  flatTolerancePercent: number;
-  emaPeriod: number;
-  splinePeriod: number;
-};
-
-export const buildTrendAcc =
-  ({ flatTolerancePercent, emaPeriod, splinePeriod }: TrendOptions) =>
-  (candles: Candle[]) =>
+export const nextTrend = withNextQueue(
+  (acc: NonEmptyArray<Curve>, [a, b]: NonEmptyArray<number>) =>
     pipe(
-      candles,
-      array.map((c) => (c.open + c.close + c.low + c.high) / 4),
-      exponentialMA(emaPeriod),
-      option.map(trendAcc(flatTolerancePercent, splinePeriod))
-    );
+      acc,
+      nonEmptyArray.last,
+      (last): NonEmptyArray<Curve> => {
+        if (a > b) {
+          return last.type === 'falling'
+            ? [{ type: 'falling', data: pipe(last.data, array.append(b)) }]
+            : [last, { type: 'falling', data: nonEmptyArray.of(b) }];
+        } else {
+          return last.type === 'rising'
+            ? [{ type: 'rising', data: pipe(last.data, array.append(b)) }]
+            : [last, { type: 'rising', data: nonEmptyArray.of(b) }];
+        }
+      },
+      (update) => pipe(acc, nonEmptyArray.init, nonEmptyArray.concat(update))
+    )
+);
 
-export const buildTrend = (options: TrendOptions) => (candles: Candle[]) =>
+export const getTrendAcc = reduceInterval(
+  ([a, b]: NonEmptyArray<number>) => nonEmptyArray.of(getInitCurve(a, b)),
+  nextTrend
+)(2);
+
+export const getAverageCurveLength = (curves: Array<Curve>) =>
   pipe(
-    buildTrendAcc(options)(candles),
-    option.map((acc) => acc.curves)
+    curves,
+    array.reduce(0, (acc, cur) => acc + cur.data.length),
+    (r) => Math.round(r / curves.length)
   );
 
-const nextTrendAcc =
-  (flatTolerancePercent: number, period: number) =>
-  (acc: TrendAcc, cur: number) =>
-    acc.curSpline.length == period - 1
-      ? {
-          curves: pipe(
-            makeCurve(flatTolerancePercent)(acc.curSpline.concat(cur)),
-            option.fold(
-              () => acc.curves,
-              (c) => appendCurve(flatTolerancePercent)(acc.curves)(c)
-            )
-          ),
-          curSpline: [],
-        }
-      : { ...acc, curSpline: acc.curSpline.concat(cur) };
-
-const trendAcc =
-  (flatTolerancePercent: number, period: number) => (values: number[]) =>
-    pipe(
-      values,
-      array.reduce(
-        { curSpline: [], curves: [] } as TrendAcc,
-        nextTrendAcc(flatTolerancePercent, period)
-      )
-    );
-
-const appendCurve =
-  (flatTolerancePercent: number) => (cs: Curve[]) => (current: Curve) =>
-    pipe(
-      sequenceT(option.option)(array.init(cs), array.last(cs)),
-      option.fold(
-        () => cs.concat(current),
-        ([init, last]) =>
-          pipe(
-            concatCurves(flatTolerancePercent)(last, current),
-            option.fold(
-              () => cs.concat(current),
-              (newCurve) => init.concat(newCurve)
-            )
+export const generalizeTrend = (curves: NonEmptyArray<Curve>) =>
+  pipe(
+    curves,
+    array.filter((curve) => curve.data.length > getAverageCurveLength(curves)),
+    nonEmptyArray.fromArray,
+    option.map((curves) =>
+      pipe(
+        nonEmptyArray.tail(curves),
+        array.reduce(nonEmptyArray.of(nonEmptyArray.head(curves)), (acc, cur) =>
+          pipe(nonEmptyArray.last(acc), (last) =>
+            last.type === cur.type
+              ? pipe(
+                  acc,
+                  nonEmptyArray.init,
+                  nonEmptyArray.concat(
+                    nonEmptyArray.of({
+                      type: last.type,
+                      data: pipe(last.data, nonEmptyArray.concat(cur.data)),
+                    })
+                  )
+                )
+              : pipe(acc, array.append(cur))
           )
+        )
+      )
+    )
+  );
+
+export type HighLow = {
+  type: 'high' | 'low';
+  value: number;
+};
+
+export const getHighLows = (
+  curves: NonEmptyArray<Curve>
+): NonEmptyArray<HighLow> =>
+  pipe(
+    curves,
+    nonEmptyArray.map((curve) =>
+      curve.type === 'falling'
+        ? { type: 'low', value: nonEmptyArray.last(curve.data) }
+        : { type: 'high', value: nonEmptyArray.last(curve.data) }
+    )
+  );
+
+const isGrowing = (data: number[]) =>
+  pipe(
+    data,
+    nonEmptyArray.fromArray,
+    option.map((lows) =>
+      pipe(
+        nonEmptyArray.tail(lows),
+        array.reduce(
+          { last: nonEmptyArray.head(lows), result: false },
+          (acc, cur) => ({
+            last: cur,
+            result: acc.result && cur > acc.last,
+          })
+        )
+      )
+    )
+  );
+
+export const higherHighsHigherLows = (highlows: NonEmptyArray<HighLow>) => {
+  const lows = pipe(
+    highlows,
+    array.filter((highlow) => highlow.type === 'low'),
+    array.map((low) => low.value)
+  );
+  const highs = pipe(
+    highlows,
+    array.filter((highlow) => highlow.type === 'high'),
+    array.map((high) => high.value)
+  );
+
+  const higherLows = isGrowing(lows);
+
+  const higherHighs = isGrowing(highs);
+
+  return pipe(
+    sequenceT(option.option)(higherLows, higherHighs),
+    option.map(([a, b]) => a.result && b.result)
+  );
+};
+
+const growingRate = (data: number[]) =>
+  pipe(
+    data,
+    nonEmptyArray.fromArray,
+    option.map((lows) =>
+      pipe(
+        nonEmptyArray.tail(lows),
+        array.reduce(
+          { last: nonEmptyArray.head(lows), num: 0 },
+          (acc, cur) => ({
+            last: cur,
+            num: cur > acc.last ? acc.num + 1 : acc.num,
+          })
+        ),
+        (acc) => acc.num / lows.length
+      )
+    )
+  );
+
+export const higherHighsHigherLowsRatio = (
+  highlows: NonEmptyArray<HighLow>
+) => {
+  const lows = pipe(
+    highlows,
+    array.filter((highlow) => highlow.type === 'low'),
+    array.map((low) => low.value)
+  );
+  const highs = pipe(
+    highlows,
+    array.filter((highlow) => highlow.type === 'high'),
+    array.map((high) => high.value)
+  );
+
+  const higherLows = growingRate(lows);
+
+  const higherHighs = growingRate(highs);
+
+  return pipe(
+    sequenceT(option.option)(higherLows, higherHighs),
+    option.map(([low, high]) => ({ low, high }))
+  );
+};
+
+export const higherHighsHigherLowsThreshold =
+  (threshold: { high: number; low: number }) =>
+  (highlows: NonEmptyArray<HighLow>) =>
+    pipe(
+      higherHighsHigherLowsRatio(highlows),
+      option.map(
+        (ratio) => ratio.high > threshold.high && ratio.low > threshold.low
       )
     );
-
-const concatCurves =
-  (flatTolerancePercent: number) =>
-  (a: Curve, b: Curve): Option<Curve> =>
-    a.type !== b.type
-      ? option.none
-      : pipe(
-          sequenceT(option.option)(array.head(a.data), array.last(b.data)),
-          option.map(([first, last]) => ({
-            type: a.type, // getType(flatTolerancePercent)(first, last),
-            data: a.data.concat(b.data),
-          }))
-        );
-
-const isFlat = (flatTolerancePercent: number) => (a: number, b: number) =>
-  getPercentChange(a, b) < flatTolerancePercent;
-
-const getType =
-  (flatTolerancePercent: number) =>
-  (first: number, last: number): TrendDirection =>
-    first > last ? 'falling' : 'rising';
-/*
-  isFlat(flatTolerancePercent)(first, last)
-    ? "flat"
-    : 
-    */
-
-const makeCurve =
-  (flatTolerancePercent: number) =>
-  (spline: number[]): Option<Curve> =>
-    pipe(
-      sequenceT(option.option)(array.head(spline), array.last(spline)),
-      option.map(([first, last]) => ({
-        type: getType(flatTolerancePercent)(first, last),
-        data: spline,
-      }))
-    );
-
-const getPercentChange = (a: number, b: number) =>
-  a > b ? 100 * (a / b - 1) : 100 * (b / a - 1);

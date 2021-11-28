@@ -1,21 +1,24 @@
-import { option } from 'fp-ts';
-import { Candle } from './types';
-export declare type TrendDirection = 'rising' | 'falling' | 'flat';
+import { nonEmptyArray, option } from 'fp-ts';
+import { NonEmptyArray } from 'fp-ts/lib/NonEmptyArray';
 export declare type Curve = {
-    type: TrendDirection;
-    data: number[];
+    type: 'rising' | 'falling';
+    data: NonEmptyArray<number>;
 };
-export declare type TrendAcc = {
-    curSpline: number[];
-    curves: Curve[];
+export declare const nextTrend: ({ prevQueue, result }: import("./utils").IntervalAcc<number, nonEmptyArray.NonEmptyArray<Curve>>, cur: number) => import("./utils").IntervalAcc<number, nonEmptyArray.NonEmptyArray<Curve>>;
+export declare const getTrendAcc: (arr: number[]) => option.Option<import("./utils").IntervalAcc<number, nonEmptyArray.NonEmptyArray<Curve>>>;
+export declare const getAverageCurveLength: (curves: Array<Curve>) => number;
+export declare const generalizeTrend: (curves: NonEmptyArray<Curve>) => option.Option<nonEmptyArray.NonEmptyArray<Curve>>;
+export declare type HighLow = {
+    type: 'high' | 'low';
+    value: number;
 };
-export declare type TrendOptions = {
-    flatTolerancePercent: number;
-    emaPeriod: number;
-    splinePeriod: number;
-};
-export declare const buildTrendAcc: ({ flatTolerancePercent, emaPeriod, splinePeriod }: TrendOptions) => (candles: Candle[]) => option.Option<{
-    curSpline: number[];
-    curves: Curve[];
+export declare const getHighLows: (curves: NonEmptyArray<Curve>) => NonEmptyArray<HighLow>;
+export declare const higherHighsHigherLows: (highlows: NonEmptyArray<HighLow>) => option.Option<boolean>;
+export declare const higherHighsHigherLowsRatio: (highlows: NonEmptyArray<HighLow>) => option.Option<{
+    low: number;
+    high: number;
 }>;
-export declare const buildTrend: (options: TrendOptions) => (candles: Candle[]) => option.Option<Curve[]>;
+export declare const higherHighsHigherLowsThreshold: (threshold: {
+    high: number;
+    low: number;
+}) => (highlows: NonEmptyArray<HighLow>) => option.Option<boolean>;
