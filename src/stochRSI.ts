@@ -1,7 +1,6 @@
 import { nonEmptyArray, option } from 'fp-ts';
 import { pipe } from 'fp-ts/lib/function';
 import { NonEmptyArray } from 'fp-ts/lib/NonEmptyArray';
-import { exponentialMA } from './movingAverage';
 import { getRSI } from './RSI';
 import { mapInterval } from './utils/mapInterval';
 
@@ -22,6 +21,3 @@ export const getStochRSI = (period: number) => (prices: number[]) =>
     getStochRSIAcc(period)(prices),
     option.map((acc) => acc.result)
   );
-
-export const getSmoothStochRSI = (period: number) => (prices: number[]) =>
-  pipe(getStochRSI(period)(prices), option.chain(exponentialMA(3)));

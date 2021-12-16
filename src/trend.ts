@@ -12,7 +12,7 @@ export type Curve = {
 const getInitCurve = (a: number, b: number): Curve =>
   a > b ? { type: 'falling', data: [a, b] } : { type: 'rising', data: [a, b] };
 
-export const nextTrend = withNextQueue(
+export const nextTrendAcc = withNextQueue(
   (acc: NonEmptyArray<Curve>, [a, b]: NonEmptyArray<number>) =>
     pipe(
       acc,
@@ -32,9 +32,9 @@ export const nextTrend = withNextQueue(
     )
 );
 
-export const getTrendAcc = reduceInterval(
+export const initTrendAcc = reduceInterval(
   ([a, b]: NonEmptyArray<number>) => nonEmptyArray.of(getInitCurve(a, b)),
-  nextTrend
+  nextTrendAcc
 )(2);
 
 export const getAverageCurveLength = (curves: Array<Curve>) =>

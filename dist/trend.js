@@ -1,12 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.higherHighsHigherLowsThreshold = exports.higherHighsHigherLowsRatio = exports.higherHighsHigherLows = exports.getHighLows = exports.generalizeTrend = exports.getAverageCurveLength = exports.getTrendAcc = exports.nextTrend = void 0;
+exports.higherHighsHigherLowsThreshold = exports.higherHighsHigherLowsRatio = exports.higherHighsHigherLows = exports.getHighLows = exports.generalizeTrend = exports.getAverageCurveLength = exports.initTrendAcc = exports.nextTrendAcc = void 0;
 const fp_ts_1 = require("fp-ts");
 const Apply_1 = require("fp-ts/lib/Apply");
 const function_1 = require("fp-ts/lib/function");
 const utils_1 = require("./utils");
 const getInitCurve = (a, b) => a > b ? { type: 'falling', data: [a, b] } : { type: 'rising', data: [a, b] };
-exports.nextTrend = (0, utils_1.withNextQueue)((acc, [a, b]) => (0, function_1.pipe)(acc, fp_ts_1.nonEmptyArray.last, (last) => {
+exports.nextTrendAcc = (0, utils_1.withNextQueue)((acc, [a, b]) => (0, function_1.pipe)(acc, fp_ts_1.nonEmptyArray.last, (last) => {
     if (a > b) {
         return last.type === 'falling'
             ? [{ type: 'falling', data: (0, function_1.pipe)(last.data, fp_ts_1.array.append(b)) }]
@@ -18,7 +18,7 @@ exports.nextTrend = (0, utils_1.withNextQueue)((acc, [a, b]) => (0, function_1.p
             : [last, { type: 'rising', data: fp_ts_1.nonEmptyArray.of(b) }];
     }
 }, (update) => (0, function_1.pipe)(acc, fp_ts_1.nonEmptyArray.init, fp_ts_1.nonEmptyArray.concat(update))));
-exports.getTrendAcc = (0, utils_1.reduceInterval)(([a, b]) => fp_ts_1.nonEmptyArray.of(getInitCurve(a, b)), exports.nextTrend)(2);
+exports.initTrendAcc = (0, utils_1.reduceInterval)(([a, b]) => fp_ts_1.nonEmptyArray.of(getInitCurve(a, b)), exports.nextTrendAcc)(2);
 const getAverageCurveLength = (curves) => (0, function_1.pipe)(curves, fp_ts_1.array.reduce(0, (acc, cur) => acc + cur.data.length), (r) => Math.round(r / curves.length));
 exports.getAverageCurveLength = getAverageCurveLength;
 const generalizeTrend = (curves) => (0, function_1.pipe)(curves, fp_ts_1.array.filter((curve) => curve.data.length > (0, exports.getAverageCurveLength)(curves)), fp_ts_1.nonEmptyArray.fromArray, fp_ts_1.option.map((curves) => (0, function_1.pipe)(fp_ts_1.nonEmptyArray.tail(curves), fp_ts_1.array.reduce(fp_ts_1.nonEmptyArray.of(fp_ts_1.nonEmptyArray.head(curves)), (acc, cur) => (0, function_1.pipe)(fp_ts_1.nonEmptyArray.last(acc), (last) => last.type === cur.type

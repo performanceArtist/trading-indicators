@@ -4,8 +4,8 @@ export declare type Curve = {
     type: 'rising' | 'falling';
     data: NonEmptyArray<number>;
 };
-export declare const nextTrend: ({ prevQueue, result }: import("./utils").IntervalAcc<number, nonEmptyArray.NonEmptyArray<Curve>>, cur: number) => import("./utils").IntervalAcc<number, nonEmptyArray.NonEmptyArray<Curve>>;
-export declare const getTrendAcc: (arr: number[]) => option.Option<import("./utils").IntervalAcc<number, nonEmptyArray.NonEmptyArray<Curve>>>;
+export declare const nextTrendAcc: ({ prevQueue, result }: import("./utils").IntervalAcc<number, nonEmptyArray.NonEmptyArray<Curve>>, cur: number) => import("./utils").IntervalAcc<number, nonEmptyArray.NonEmptyArray<Curve>>;
+export declare const initTrendAcc: (arr: number[]) => option.Option<import("./utils").IntervalAcc<number, nonEmptyArray.NonEmptyArray<Curve>>>;
 export declare const getAverageCurveLength: (curves: Array<Curve>) => number;
 export declare const generalizeTrend: (curves: NonEmptyArray<Curve>) => option.Option<nonEmptyArray.NonEmptyArray<Curve>>;
 export declare type HighLow = {

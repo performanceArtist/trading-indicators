@@ -1,15 +1,18 @@
 import { nonEmptyArray, option } from 'fp-ts';
 import { NonEmptyArray } from 'fp-ts/lib/NonEmptyArray';
+import { Option } from 'fp-ts/lib/Option';
+import { IntervalAcc } from './utils';
 export declare type RSIData = {
     averageGain: number;
     averageLoss: number;
     rsi: number;
 };
-export declare const initialRSI: (periods: PricePoint[]) => nonEmptyArray.NonEmptyArray<{
-    averageGain: number;
-    averageLoss: number;
-    rsi: number;
-}>;
+export declare type RSIAcc = [
+    IntervalAcc<number, NonEmptyArray<PricePoint>>,
+    NonEmptyArray<RSIData>
+];
+export declare const initRSIAcc: (period: number) => (input: number[]) => Option<RSIAcc>;
+export declare const nextRSIAcc: (period: number) => (acc: RSIAcc, cur: number) => RSIAcc;
 declare type PricePoint = {
     type: 'gain';
     value: number;
@@ -17,19 +20,6 @@ declare type PricePoint = {
     type: 'loss';
     value: number;
 };
-export declare const toPricePoint: ([a, b]: number[]) => PricePoint;
-export declare const nextRSI: (period: number) => (acc: NonEmptyArray<RSIData>, cur: PricePoint) => nonEmptyArray.NonEmptyArray<{
-    averageGain: number;
-    averageLoss: number;
-    rsi: number;
-}>;
-export declare const getRSIAcc: (period: number) => (prices: number[]) => option.Option<{
-    rsi: nonEmptyArray.NonEmptyArray<{
-        averageGain: number;
-        averageLoss: number;
-        rsi: number;
-    }>;
-    acc: import("./utils/mapInterval").IntervalAcc<number, nonEmptyArray.NonEmptyArray<PricePoint>>;
-}>;
+export declare const fromRSIAcc: (acc: RSIAcc) => NonEmptyArray<number>;
 export declare const getRSI: (period: number) => (prices: number[]) => option.Option<nonEmptyArray.NonEmptyArray<number>>;
 export {};

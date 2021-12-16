@@ -9,15 +9,15 @@ import { splitAtFixed } from './utils/splitAtFixed';
 const nextSimpleMA = (next: number[]) =>
   next.reduce((acc, cur) => acc + cur, 0) / next.length;
 
-export const simpleMAAcc = mapInterval(nextSimpleMA);
+export const initSimpleMAAcc = mapInterval(nextSimpleMA);
 
-export const simpleMA = (period: number) =>
+export const getSimpleMA = (period: number) =>
   flow(
-    simpleMAAcc(period),
+    initSimpleMAAcc(period),
     option.map((acc) => acc.result)
   );
 
-export const initialExponentialMA = (init: number[]) =>
+export const initExponentialMA = (init: number[]) =>
   nonEmptyArray.of(init.reduce((acc, cur) => acc + cur, 0) / init.length);
 
 export const nextExponentialMA =
@@ -31,13 +31,13 @@ export const nextExponentialMA =
 
 const getSmoothFactor = (period: number) => 2 / (period + 1);
 
-export const exponentialMA = (period: number) => (prices: number[]) =>
+export const getExponentialMA = (period: number) => (prices: number[]) =>
   pipe(
     splitAtFixed(period)(prices),
     option.map(([init, rest]) =>
       pipe(
         rest,
-        array.reduce(initialExponentialMA(init), nextExponentialMA(period))
+        array.reduce(initExponentialMA(init), nextExponentialMA(period))
       )
     )
   );
